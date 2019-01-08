@@ -1,0 +1,151 @@
+--- searcher.py	2018-12-18 11:38:49.000000000 +0900
++++ searcher_v2.py	2018-12-20 16:14:36.000000000 +0900
+@@ -27,6 +27,7 @@
+ from persistence.server.server_io_exceptions import ResourceDoesNotExist, ConflictInDatabase
+ from validator import *
+ import urlparse
++import getpass
+ 
+ 
+ logger = logging.getLogger('Faraday searcher')
+@@ -173,9 +174,9 @@
+                         if 'conditions' in rule:
+                             environment = get_model_environment(m2, _models)
+                             if can_execute_action(environment, rule['conditions']):
+-                                execute_action(ws, _object, rule, _server)
++                                execute_action(ws, _object, rule, _server, _refs)
+                         else:
+-                            execute_action(ws, _object, rule, _server)
++                            execute_action(ws, _object, rule, _server, _refs)
+     logger.debug("<-- Finish Process models by similarity")
+ 
+ 
+@@ -228,7 +229,7 @@
+                 field.remove(value)
+ 
+ 
+-def update_vulnerability(ws, vuln, key, value, _server):
++def update_vulnerability(ws, vuln, key, value, _server, _refs):
+     if key == 'template':
+         cwe = get_cwe(value, _server)
+         if cwe is None:
+@@ -238,8 +239,12 @@
+         vuln.name = cwe['name']
+         vuln.description = cwe['description']
+         vuln.desc = cwe['description']
+-        vuln.resolution = cwe['resolution']
+-        vuln.refs = cwe['references']
++        if cwe['resolution']:
++            vuln.resolution = cwe['resolution']
++        if _refs:
++            vuln.refs = cwe['references']
++        else:
++            vuln.refs.append(cwe['references'])
+         vuln.severity = cwe['severity']
+ 
+         logger.info("Applying template '%s' to vulnerability '%s' with id '%s'" % (value, vuln.name, vuln.id))
+@@ -466,7 +471,7 @@
+     return True
+ 
+ 
+-def execute_action(ws, objects, rule, _server):
++def execute_action(ws, objects, rule, _server, _refs):
+     logger.info("Running actions of rule '%s' :" % rule['id'])
+     actions = rule['actions']
+     _objs_value = None
+@@ -481,7 +486,7 @@
+             if command == 'UPDATE':
+                 key, value = expression.split('=')
+                 if obj.class_signature == 'VulnerabilityWeb' or obj.class_signature == 'Vulnerability':
+-                    if update_vulnerability(ws, obj, key, value, _server):
++                    if update_vulnerability(ws, obj, key, value, _server, _refs):
+                         insert_rule(rule['id'], command, obj, _objs_value, fields=None, key=key, value=value)
+ 
+                 if obj.class_signature == 'Service':
+@@ -525,7 +530,7 @@
+     return True
+ 
+ 
+-def process_vulnerabilities(ws, vulns, _server):
++def process_vulnerabilities(ws, vulns, _server, _refs):
+     logger.debug("--> Start Process vulnerabilities")
+     for rule in rules:
+         if rule['model'] == 'Vulnerability':
+@@ -540,9 +545,9 @@
+                 if objects is not None and len(objects) != 0:
+                     if 'conditions' in rule:
+                         if can_execute_action(vulnerabilities, rule['conditions']):
+-                            execute_action(ws, objects, rule, _server)
++                            execute_action(ws, objects, rule, _server, _refs)
+                     else:
+-                        execute_action(ws, objects, rule, _server)
++                        execute_action(ws, objects, rule, _server, _refs)
+     logger.debug("<-- Finish Process vulnerabilities")
+ 
+ 
+@@ -562,9 +567,9 @@
+                 if objects is not None and len(objects) != 0:
+                     if 'conditions' in rule:
+                         if can_execute_action(services, rule['conditions']):
+-                            execute_action(ws, objects, rule, _server)
++                            execute_action(ws, objects, rule, _server, _refs)
+                     else:
+-                        execute_action(ws, objects, rule, _server)
++                        execute_action(ws, objects, rule, _server, _refs)
+     logger.debug("<-- Finish Process services")
+ 
+ 
+@@ -584,9 +589,9 @@
+                 if objects is not None and len(objects) != 0:
+                     if 'conditions' in rule:
+                         if can_execute_action(hosts, rule['conditions']):
+-                            execute_action(ws, objects, rule, _server)
++                            execute_action(ws, objects, rule, _server, _refs)
+                     else:
+-                        execute_action(ws, objects, rule, _server)
++                        execute_action(ws, objects, rule, _server, _refs)
+         logger.debug("<-- Finish Process Hosts")
+ 
+ 
+@@ -615,6 +620,7 @@
+     parser.add_argument('-p', '--password', help='Faraday password', required=False, default="")
+     parser.add_argument('-o', '--output', help='Choose a custom output directory', required=False)
+     parser.add_argument('-l', '--log', help='Choose a custom log level', required=False)
++    parser.add_argument('-r', '--refs', action='store_true', help='Overwrite Refs from template', required=False)
+     args = parser.parse_args()
+ 
+     lockf = ".lock.pod"
+@@ -634,11 +640,15 @@
+     if args.server:
+         _server = args.server
+ 
++    _refs = False
++    if args.refs:
++        _refs = True
++
+     _user = 'faraday'
+     if args.user:
+         _user = args.user
+ 
+-    _password = 'changeme'
++    #_password = 'changeme'
+     if args.password:
+         _password = args.password
+ 
+@@ -676,6 +686,7 @@
+         logger.addHandler(ch)
+ 
+     try:
++        _password = getpass.getpass()
+         session_cookie = login_user(_server, _user, _password)
+         if not session_cookie:
+             raise UserWarning('Invalid credentials!')
+@@ -701,7 +712,7 @@
+         vulns = models.get_all_vulns(workspace)
+ 
+         if validate_rules():
+-            process_vulnerabilities(workspace, vulns, _server)
++            process_vulnerabilities(workspace, vulns, _server, _refs)
+             process_services(workspace, services, _server)
+             process_hosts(workspace, hosts, _server)
+ 
