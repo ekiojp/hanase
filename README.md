@@ -6,6 +6,8 @@ A simple tool to make [Faraday](https://github.com/infobyte/faraday) **Status Re
 
 The trick is actually on getting CVE numbers of each vulnerability, in Japan we have a public CVE DB (in Japanese of course) where we can lookup for CVE's, called [JVN iPedia](https://jvndb.jvn.jp/index.html)
 
+Also, will add the JVN CVE's found into the Vulnerability Templates for use manually on any workspace
+
 ## Installation
 
 We assume you already have **Faraday** running and installed on your $HOME/faraday
@@ -142,13 +144,21 @@ Password:
 ~/faraday/scripts/searcher$
 ```
 
-# Status Report before **hanase.py**
+## Status Report **before** `hanase.py`
 
 ![status_before](screenshot_before.png)
 
-# Status Report after **hanase.py**
+## Vulnerability Templates **before** `hanase.py`
+
+![vultlp_before](screenshot_vul_before.png)
+
+## Status Report **after** `hanase.py`
 
 ![status_after](screenshot_after.png)
+
+## Vulnerability Templates **after** `hanase.py`
+
+![status_after](screenshot_vul_after.png)
 
 
 # ToDo
