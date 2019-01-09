@@ -1,5 +1,5 @@
 --- searcher.py	2018-12-18 11:38:49.000000000 +0900
-+++ searcher_v2.py	2018-12-20 16:14:36.000000000 +0900
++++ searcher_v2.py	2019-01-09 14:45:03.000000000 +0900
 @@ -27,6 +27,7 @@
  from persistence.server.server_io_exceptions import ResourceDoesNotExist, ConflictInDatabase
  from validator import *
@@ -115,7 +115,7 @@
      args = parser.parse_args()
  
      lockf = ".lock.pod"
-@@ -634,11 +640,15 @@
+@@ -634,11 +640,14 @@
      if args.server:
          _server = args.server
  
@@ -128,15 +128,15 @@
          _user = args.user
  
 -    _password = 'changeme'
-+    #_password = 'changeme'
      if args.password:
          _password = args.password
  
-@@ -676,6 +686,7 @@
+@@ -676,6 +685,8 @@
          logger.addHandler(ch)
  
      try:
-+        _password = getpass.getpass()
++        if not _password:
++            getpass.getpass()
          session_cookie = login_user(_server, _user, _password)
          if not session_cookie:
              raise UserWarning('Invalid credentials!')
