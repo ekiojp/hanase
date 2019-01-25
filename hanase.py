@@ -92,7 +92,7 @@ def parsingopt():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', dest='dryrun', action='store_true', help='Dry-run TEST')
     parser.add_argument('-w', dest='ws_name', required=True, metavar='<workspace>',
-                        default='eth0', help='Faraday Workspace')
+                        default='test', help='Faraday Workspace')
     parser.add_argument('-s', dest='server', required=False, metavar='<server>',
                         default='http://localhost:5985', help='Faraday Server (default: http://localhost:5985)')
     parser.add_argument('-i', dest='jvndb', required=True, metavar='<input JVN>',
