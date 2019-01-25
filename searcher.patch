@@ -1,5 +1,5 @@
---- searcher.py	2018-12-18 11:38:49.000000000 +0900
-+++ searcher_v2.py	2019-01-09 14:45:03.000000000 +0900
+--- searcher.py.ori	2019-01-25 13:22:31.000000000 +0900
++++ searcher.py	2019-01-25 13:36:31.000000000 +0900
 @@ -27,6 +27,7 @@
  from persistence.server.server_io_exceptions import ResourceDoesNotExist, ConflictInDatabase
  from validator import *
@@ -8,7 +8,25 @@
  
  
  logger = logging.getLogger('Faraday searcher')
-@@ -173,9 +174,9 @@
+@@ -76,12 +77,16 @@
+                 name = doc['name']
+                 description = doc['description']
+                 resolution = doc['resolution']
++                references = doc['references']
++                severity = doc['exploitation']
+                 if str(_id) == data or name == data:
+                     cwe = {
+                         'id': _id,
+                         'name': name,
+                         'description': description,
+-                        'resolution': resolution
++                        'resolution': resolution,
++                        'references': references,
++                        'severity': severity
+                     }
+                     break
+             return cwe
+@@ -169,9 +174,9 @@
                          if 'conditions' in rule:
                              environment = get_model_environment(m2, _models)
                              if can_execute_action(environment, rule['conditions']):
@@ -20,7 +38,7 @@
      logger.debug("<-- Finish Process models by similarity")
  
  
-@@ -228,7 +229,7 @@
+@@ -224,7 +229,7 @@
                  field.remove(value)
  
  
@@ -29,22 +47,22 @@
      if key == 'template':
          cwe = get_cwe(value, _server)
          if cwe is None:
-@@ -238,8 +239,12 @@
+@@ -234,7 +239,13 @@
          vuln.name = cwe['name']
          vuln.description = cwe['description']
          vuln.desc = cwe['description']
 -        vuln.resolution = cwe['resolution']
--        vuln.refs = cwe['references']
 +        if cwe['resolution']:
 +            vuln.resolution = cwe['resolution']
 +        if _refs:
 +            vuln.refs = cwe['references']
 +        else:
 +            vuln.refs.append(cwe['references'])
-         vuln.severity = cwe['severity']
++        vuln.severity = cwe['severity']
  
          logger.info("Applying template '%s' to vulnerability '%s' with id '%s'" % (value, vuln.name, vuln.id))
-@@ -466,7 +471,7 @@
+ 
+@@ -460,7 +471,7 @@
      return True
  
  
@@ -53,16 +71,16 @@
      logger.info("Running actions of rule '%s' :" % rule['id'])
      actions = rule['actions']
      _objs_value = None
-@@ -481,7 +486,7 @@
-             if command == 'UPDATE':
-                 key, value = expression.split('=')
+@@ -479,7 +490,7 @@
+                 key = array_exp[0]
+                 value = str('=').join(array_exp[1:])
                  if obj.class_signature == 'VulnerabilityWeb' or obj.class_signature == 'Vulnerability':
 -                    if update_vulnerability(ws, obj, key, value, _server):
 +                    if update_vulnerability(ws, obj, key, value, _server, _refs):
                          insert_rule(rule['id'], command, obj, _objs_value, fields=None, key=key, value=value)
  
                  if obj.class_signature == 'Service':
-@@ -525,7 +530,7 @@
+@@ -523,7 +534,7 @@
      return True
  
  
@@ -71,7 +89,7 @@
      logger.debug("--> Start Process vulnerabilities")
      for rule in rules:
          if rule['model'] == 'Vulnerability':
-@@ -540,9 +545,9 @@
+@@ -538,9 +549,9 @@
                  if objects is not None and len(objects) != 0:
                      if 'conditions' in rule:
                          if can_execute_action(vulnerabilities, rule['conditions']):
@@ -83,7 +101,7 @@
      logger.debug("<-- Finish Process vulnerabilities")
  
  
-@@ -562,9 +567,9 @@
+@@ -560,9 +571,9 @@
                  if objects is not None and len(objects) != 0:
                      if 'conditions' in rule:
                          if can_execute_action(services, rule['conditions']):
@@ -95,7 +113,7 @@
      logger.debug("<-- Finish Process services")
  
  
-@@ -584,9 +589,9 @@
+@@ -582,9 +593,9 @@
                  if objects is not None and len(objects) != 0:
                      if 'conditions' in rule:
                          if can_execute_action(hosts, rule['conditions']):
@@ -107,7 +125,7 @@
          logger.debug("<-- Finish Process Hosts")
  
  
-@@ -615,6 +620,7 @@
+@@ -613,6 +624,7 @@
      parser.add_argument('-p', '--password', help='Faraday password', required=False, default="")
      parser.add_argument('-o', '--output', help='Choose a custom output directory', required=False)
      parser.add_argument('-l', '--log', help='Choose a custom log level', required=False)
@@ -115,7 +133,7 @@
      args = parser.parse_args()
  
      lockf = ".lock.pod"
-@@ -634,11 +640,14 @@
+@@ -632,11 +644,14 @@
      if args.server:
          _server = args.server
  
@@ -131,7 +149,7 @@
      if args.password:
          _password = args.password
  
-@@ -676,6 +685,8 @@
+@@ -674,6 +689,8 @@
          logger.addHandler(ch)
  
      try:
@@ -140,7 +158,7 @@
          session_cookie = login_user(_server, _user, _password)
          if not session_cookie:
              raise UserWarning('Invalid credentials!')
-@@ -701,7 +712,7 @@
+@@ -699,7 +716,7 @@
          vulns = models.get_all_vulns(workspace)
  
          if validate_rules():
